@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Help me learn type</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'JetBrains Mono', monospace; background-color: #0d0d0d; color: #dcdcdc; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; height: 100vh; }
+    h1 { font-size: 2.8rem; color: #00ff99; margin-top: 40px; margin-bottom: 5px; text-shadow: 0 0 10px rgba(0, 255, 153, 0.3); }
+    .byline { font-size: 1.26rem; color: #aaa; margin-bottom: 40px; }
+    .top-bar { position: fixed; top: 0; left: 0; width: 100%; height: 6px; background: #222; z-index: 999; }
+    .progress { height: 100%; background: linear-gradient(to right, #00ff99, #00ffaa); box-shadow: 0 0 10px #00ff99; width: 0%; transition: width 0.1s ease; }
+    .controls { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; margin-top: 20px; }
+    .mode-btn, .time-btn, .word-btn { 
+      margin: 5px; 
+      padding: 15px 22px; 
+      background-color: #1a1a1a; 
+      color: #00ff99; 
+      border: 1px solid #333; 
+      border-radius: 8px; 
+      cursor: pointer; 
+      transition: all 0.2s; 
+      font-size: 1.2rem;
+    }
+    .mode-btn:hover, .time-btn:hover, .word-btn:hover { 
+      background-color: #333; 
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0, 255, 153, 0.2);
+    }
+    .time-group, .word-group { display: flex; gap: 10px; align-items: center; margin-top: 15px; }
+    .time-label, .word-label { color: #8aa; font-size: 1.1rem; margin-right: 10px; }
+    .time-btn.active, .word-btn.active { 
+      outline: 2px solid #00ff99; 
+      outline-offset: 2px;
+      background-color: #222;
+    }
+    .word-box { 
+      margin-top: 20px; 
+      width: 90%; 
+      text-align: center; 
+      font-size: 1.5rem; 
+      word-wrap: break-word; 
+      line-height: 1.3;
+      display: none;
+    }
+    .word-box span { padding: 2px; opacity: 1; font-weight: bold; }
+    .typed { opacity: 0.2; }
+    .correct { color: #00ff99; font-weight: bold; }
+    .incorrect { color: #ff4d4d; font-weight: bold; }
+    .active-letter { 
+      position: relative;
+      color: #ffd700;
+    }
+    .active-letter::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 100%;
+      height: 2px;
+      background-color: #ffd700;
+      box-shadow: 0 0 5px #ffd700, 0 0 10px #ffd700;
+      animation: blink 3s infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .input-box { 
+      margin-top: 20px; 
+      width: 80%; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      gap: 8px;
+      display: none;
+    }
+    input[type="text"] { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    .result { 
+      position: fixed; 
+      top: 50%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+      background: rgba(30,30,30,0.95); 
+      padding: 30px; 
+      border-radius: 10px; 
+      color: #fff; 
+      font-size: 1.2rem; 
+      display: none; 
+      flex-direction: column; 
+      align-items: center; 
+      box-shadow: 0 0 15px #00ff99aa; 
+      z-index: 1000;
+    }
+    .show { display: flex; }
+    .restart-wrap { display: none; justify-content: center; align-items: center; width: 100%; }
+    .typing-mode .restart-wrap { display: flex; }
+    .restart-btn { 
+      border: none; 
+      background: transparent; 
+      cursor: pointer; 
+      padding: 6px; 
+      border-radius: 10px; 
+      transition: transform .15s ease, box-shadow .15s ease; 
+    }
+    .restart-btn:hover { 
+      transform: translateY(-1px); 
+      box-shadow: 0 0 12px rgba(0,255,153,.35); 
+    }
+    .restart-btn:focus { 
+      outline: 2px solid #00ff99; 
+      outline-offset: 3px; 
+    }
+    .restart-svg { 
+      width: 40px; 
+      height: 40px; 
+      filter: drop-shadow(0 0 6px rgba(0,255,153,.25)); 
+    }
+    .mode-selection {
+      text-align: center;
+      margin-top: 30px;
+      font-size: 1.1rem;
+      color: #8aa;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar"><div class="progress" id="progressBar"></div></div>
+  <h1>TypeShark</h1>
+  <div class="byline">by Prikshit</div>
+
+  <div class="controls">
+    <button class="mode-btn" onclick="selectTimeTrial(); showPopAd()">Time Trial</button>
+    <div class="time-group" id="timeGroup" style="display:none;">
+      <span class="time-label">Time:</span>
+      <button class="time-btn" data-ms="15000" onclick="startTimeTrial(this); showPopAd()"
+>15s</button>
+      <button class="time-btn active" data-ms="30000" onclick="startTimeTrial(this)">30s</button>
+      <button class="time-btn" data-ms="60000" onclick="startTimeTrial(this)">1m</button>
+      <button class="time-btn" data-ms="180000" onclick="startTimeTrial(this)">3m</button>
+    </div>
+    <button class="mode-btn" onclick="selectWordRush(); showPopAd()"
+>Word Rush</button>
+    <div class="word-group" id="wordGroup" style="display:none;">
+      <span class="word-label">Words:</span>
+      <button class="word-btn active" data-words="15" onclick="startWordRush(this); showPopAd()">15</button>
+      <button class="word-btn" data-words="30" onclick="startWordRush(this); showPopAd()">30</button>
+      <button class="word-btn" data-words="50" onclick="startWordRush(this); showPopAd()">50</button>
+      <button class="word-btn" data-words="100" onclick="startWordRush(this); showPopAd()">100</button>
+    </div>
+  </div>
+
+  <div class="mode-selection" id="modeSelection">Select a mode to begin</div>
+
+  <div class="word-box" id="wordBox"></div>
+  <div class="input-box" id="inputBoxContainer">
+    <!-- Hidden input (like monkeytype): stays focused but not visible -->
+    <input type="text" id="inputBox" oninput="checkInput()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+    <div class="restart-wrap">
+      <button id="restartBtn" class="restart-btn" aria-label="Restart">
+        <svg class="restart-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M21 12a9 9 0 1 1-2.64-6.36" stroke="#00ff99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M21 5v5h-5" stroke="#00ff99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div id="adsterra-banner" style="margin-top:20px; text-align:center;"> <script async="async" data-cfasync="false" src="//pl27578754.revenuecpmgate.com/e22b576ebc0ebe214602ef428c376d5a/invoke.js"></script> <div id="container-e22b576ebc0ebe214602ef428c376d5a"></div> </div> <div class="result" id="result"></div>
+
+  <script>
+    const wordList = [
+      'hover','ignite','flash','cycle','token','zoom','graph','design','hyper','matrix',
+      'signal','react','loop','pulse','trace','frame','scroll','drift','binary','syntax',
+      'portal','align','track','click','phase','cloud','stream','pattern','neon','flare',
+      'core','impact','glitch','electric','data','logic','fuse','vibe','phantom','quantum',
+      'node','system','vision','beyond','fusion','motion','silent','sprint','cycle','flux','ax','bin','cry','dew','elm','fog','gym','hat','ink','jet',
+'kit','log','mud','nap','owl','peg','quip','rug','sun','tug',
+'van','web','yap','zip','arc','bun','cob','dip','ear','fox',
+'gap','hut','ice','jam','keg','lip','mow','nut','oak','paw',
+'quo','rot','sip','tan','urn','vet','wow','yew','zoo','ape',
+'bot','cub','dot','eel','fig','gel','hog','ivy','jog','kin',
+'lid','mug','nod','opt','pig','qat','rib','sow','toy','use',
+'vow','wig','yip','zap','art','box','cow','dab','egg','flu',
+'gem','hop','irk','joy','key','lot','mix','nag','orb','pun',
+'ram','sly','top','ugh','via','wax','yen','zest','ally','bent',
+'crisp','dusk','echo','flip','glow','harp','iron','jump','knot',
+'lamp','mint','noble','oval','pint','quilt','rust','swim','tilt',
+'upon','vivid','wrist','yacht','zebra','amber','blink','crate',
+'droop','elbow','froth','grind','honey','inlet','jolly','kiosk',
+'latch','mango','nudge','otter','pluck','quark','ripen','scoop',
+'truce','unzip','vixen','wharf','yield','zesty','acorn','badge',
+'clasp','diver','exact','fable','gauze','hazel','infer','joust',
+'karma','lunar','mirth','nymph','ocean','prank','quash','rival',
+'spark','twist','ultra','vocal','widen','yearn','zilch','agile',
+'blurt','chest','dwarf','evoke','flick','grape','hinge','jaded',
+'knack','lemon','moldy','noble','pecan','quirk','rebel','swoop',
+'tonic','unlit','vapor','wiser','yummy','zippy','adept','bland',
+'chirp','drape','ember','flint','gloat','haste','itchy','jumpy',
+'kneel','lumpy','miser','noisy','plumb','quail','rodeo','satin',
+'tabby','unmet','vague','witty','yodel','abyss','blush','creep',
+'dizzy','elope','furry','greed','hunky','ivory','jumpy','kinky',
+'lousy','mangy','nerdy','pesky','quick','robin','savvy','tweak',
+'uncut','vapid','woozy','yummy','abide','brisk','charm','dense',
+'elfin','faint','glide','hefty','inbox','jolly','kayak','lurch',
+'mirth','nudge','plump','quart','rover','sleek','tango','unzip',
+'vixen','wacky','youth','abode','brink','covey','droll','eager',
+'fluke','girly','hasty','ideal','joust','kudos','lanky','mogul',
+'nutty','plush','quell','roost','squat','tiger','unify','vowel',
+'wispy','yummy','abyss','blimp','covey','dumpy','eerie','flaky',
+'gipsy','hunky','inlay','jumpy','kinky','lumpy','moody','nifty',
+'pouty','qualm','rusty','slyly','twixt','unwed','vying','wryly',
+'abate','blink','crimp','dusky','eagle','flint','gawky','harpy',
+'ionic','jumpy','kinky','loopy','mirth','nifty','pouty','quirk',
+'rover','slyly','twixt','unzip','vying','wryly','abyss','blimp',
+'covey','dumpy','eerie','flaky','gipsy','hunky','inlay','jumpy',
+'kinky','lumpy','moody','nifty','pouty','qualm','rusty','slyly',
+'twixt','unwed','vying','wryly','abate','blink','crimp','dusky',
+'eagle','flint','gawky','harpy','ionic','jumpy','kinky','loopy',
+'mirth','nifty','pouty','quirk','rover','slyly','twixt','unzip',
+'vying','wryly','abyss','blimp','covey','dumpy','eerie','flaky',
+'gipsy','hunky','inlay','jumpy','kinky','lumpy','moody','nifty',
+'pouty','qualm','rusty','slyly','twixt','unwed','vying','wryly',
+'abate','blink','crimp','dusky','eagle','flint','gawky','harpy',
+'ionic','jumpy','kinky','loopy','mirth','nifty','pouty','quirk',
+'rover','slyly','twixt','unzip','vying','wryly','abyss','blimp',
+'covey','dumpy','eerie','flaky','gipsy','hunky','inlay','jumpy',
+'kinky','lumpy','moody','nifty','pouty','qualm','rusty','slyly',
+'twixt','unwed','vying','wryly','abate','blink','crimp','dusky',
+'eagle','flint','gawky','harpy','ionic','jumpy','kinky','loopy',
+'mirth','nifty','pouty','quirk','rover','slyly','twixt','unzip',
+'vying','wryly','abyss','blimp','covey','dumpy','eerie','flaky',
+'gipsy','hunky','inlay','jumpy','kinky','lumpy','moody','nifty',
+'pouty','qualm','rusty','slyly','twixt','unwed','vying','wryly','acid','bent','clap','dart','echo','fizz','grit','hush','icon','jolt',
+'kilt','lush','mint','nook','opal','pint','quip','rift','sash','tint',
+'undo','vibe','wisp','yank','zest','aura','brag','chop','dusk','etch',
+'fizz','glow','harp','itch','jazz','knot','lurk','mild','numb','oval',
+'puff','quid','raft','slim','turf','ugly','vibe','wilt','yoga','zany',
+'axle','bump','cove','drip','envy','flip','gulp','hazy','iron','jade',
+'keen','lisp','maze','nook','ogle','pact','quay','reed','sank','tame',
+'unit','vibe','warp','yowl','zest','ally','bark','crop','dine','exit',
+'fizz','gawk','hazy','inch','jolt','knee','lurk','maze','numb','onyx',
+'pelt','quip','rift','sank','tilt','undo','vibe','wilt','yank','zany',
+'ache','bent','clap','dart','echo','fizz','grit','hush','icon','jolt',
+'kilt','lush','mint','nook','opal','pint','quip','rift','sash','tint',
+'undo','vibe','wisp','yank','zest','aura','brag','chop','dusk','etch',
+'fizz','glow','harp','itch','jazz','knot','lurk','mild','numb','oval',
+'puff','quid','raft','slim','turf','ugly','vibe','wilt','yoga','zany',
+'axle','bump','cove','drip','envy','flip','gulp','hazy','iron','jade',
+'keen','lisp','maze','nook','ogle','pact','quay','reed','sank','tame',
+'unit','vibe','warp','yowl','zest','ally','bark','crop','dine','exit',
+'fizz','gawk','hazy','inch','jolt','knee','lurk','maze','numb','onyx',
+'pelt','quip','rift','sank','tilt','undo','vibe','wilt','yank','zany'
+    ];
+
+    let currentWords = [], currentIndex = 0;
+    let correctChars = 0, mistakes = 0;
+    let mode = '', startTime = null, endTimeout = null, rafId = null, hasStarted = false;
+    let DURATION_MS = 30000; // default for time trial
+    let wordTarget = 15; // default for word rush
+    let totalCharsTarget = 0; // total characters to type in word rush
+
+    const inputEl = document.getElementById('inputBox');
+    const wordBoxEl = document.getElementById('wordBox');
+    const inputBoxContainer = document.getElementById('inputBoxContainer');
+    const modeSelectionEl = document.getElementById('modeSelection');
+    
+    // always try to keep focus on the hidden input so typing works anywhere
+    function focusHiddenInput(){ inputEl?.focus(); }
+    document.addEventListener('click', (e)=>{
+      // clicking anywhere near the typing area focuses the hidden input
+      const wb = document.getElementById('wordBox');
+      if (wb && (wb.contains(e.target) || e.target.id === 'restartBtn')) return; // don't steal focus on restart click
+      focusHiddenInput();
+    });
+    document.getElementById('wordBox').addEventListener('click', focusHiddenInput);
+    window.addEventListener('blur', ()=> setTimeout(focusHiddenInput, 0));
+    const resultEl = document.getElementById('result');
+    const restartBtn = document.getElementById('restartBtn');
+    const timeGroup = document.getElementById('timeGroup');
+    const wordGroup = document.getElementById('wordGroup');
+
+    function setProgress(pct){ document.getElementById('progressBar').style.width = Math.max(0, Math.min(100, pct)) + '%'; }
+    function cancelTimers(){ if (endTimeout){clearTimeout(endTimeout); endTimeout=null;} if (rafId){cancelAnimationFrame(rafId); rafId=null;} }
+    function shuffle(arr){ for (let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]];} return arr; }
+
+    function selectTimeTrial(){
+      timeGroup.style.display = 'flex';
+      wordGroup.style.display = 'none';
+      modeSelectionEl.textContent = "Select time duration";
+      [...timeGroup.querySelectorAll('.time-btn')].forEach(btn=>btn.classList.toggle('active', btn.getAttribute('data-ms')==='30000'));
+      startMode('time', false);
+    }
+
+    function startTimeTrial(btn){
+      [...timeGroup.querySelectorAll('.time-btn')].forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      DURATION_MS = parseInt(btn.getAttribute('data-ms'), 10);
+      modeSelectionEl.style.display = 'none';
+      wordBoxEl.style.display = 'block';
+      inputBoxContainer.style.display = 'flex';
+      startMode('time', true);
+    }
+
+    function selectWordRush(){
+      wordGroup.style.display = 'flex';
+      timeGroup.style.display = 'none';
+      modeSelectionEl.textContent = "Select word count";
+      [...wordGroup.querySelectorAll('.word-btn')].forEach(btn=>btn.classList.toggle('active', btn.getAttribute('data-words')==='15'));
+      startMode('word', false);
+    }
+
+    function startWordRush(btn){
+      [...wordGroup.querySelectorAll('.word-btn')].forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      wordTarget = parseInt(btn.getAttribute('data-words'), 10);
+      modeSelectionEl.style.display = 'none';
+      wordBoxEl.style.display = 'block';
+      inputBoxContainer.style.display = 'flex';
+      startMode('word', true);
+    }
+
+    function startMode(selectedMode, autoStart = true){
+      cancelTimers(); setProgress(0);
+      mode = selectedMode; hasStarted = false; startTime = null;
+      currentWords = shuffle([...wordList]).slice(0, mode === 'word' ? wordTarget : 100);
+      currentIndex = 0; correctChars = 0; mistakes = 0;
+      totalCharsTarget = mode === 'word' ? currentWords.join(' ').length : 0;
+      resultEl.classList.remove('show');
+      inputEl.disabled = false; inputEl.value='';
+      renderWords();
+      if (autoStart){ 
+        inputEl.focus(); 
+        document.body.classList.add('typing-mode');
+      } else {
+        document.body.classList.remove('typing-mode');
+      }
+      if (mode === 'word') setProgress(0);
+    }
+
+    function renderWords(){
+      const box = document.getElementById('wordBox'); box.innerHTML='';
+      currentWords.forEach((word,i)=>{
+        const span=document.createElement('span'); span.id=`word-${i}`;
+        span.innerHTML = word.split('').map((ch,idx)=>`<span id=\"char-${i}-${idx}\">${ch}</span>`).join('') + ' ';
+        box.appendChild(span);
+      });
+    }
+
+    function startTimeProgress(){
+      const tick = () => {
+        const elapsed = Date.now() - startTime; const pct = (elapsed / DURATION_MS) * 100; setProgress(pct);
+        if (elapsed < DURATION_MS) { rafId = requestAnimationFrame(tick); }
+      };
+      rafId = requestAnimationFrame(tick);
+      endTimeout = setTimeout(endTyping, DURATION_MS);
+    }
+
+    function checkInput(){
+      const typed = inputEl.value;
+      if (!hasStarted && typed.length > 0){ 
+        hasStarted = true; 
+        startTime = Date.now(); 
+        document.body.classList.add('typing-mode');
+        if (mode==='time') startTimeProgress(); 
+      }
+      const currentWord = currentWords[currentIndex]; if (!currentWord) return;
+      for (let i=0;i<currentWord.length;i++){
+        const s = document.getElementById(`char-${currentIndex}-${i}`); if (!s) continue;
+        if (i < typed.length){ s.className = (typed[i]===currentWord[i]) ? 'typed correct' : 'typed incorrect'; }
+        else if (i === typed.length){ s.className = 'active-letter'; } else { s.className=''; }
+      }
+      if (typed.endsWith(' ')){
+        const finalWord = typed.trim(); const maxLen = Math.max(finalWord.length, currentWord.length);
+        for (let i=0;i<maxLen;i++){ const exp=currentWord[i]||''; const got=finalWord[i]||''; if (got===exp) correctChars++; else mistakes++; }
+        inputEl.value=''; currentIndex++;
+        if (mode==='word') {
+          // Progress bar per character typed (correct + mistakes so far / total characters)
+          const typedChars = correctChars + mistakes;
+          setProgress((typedChars / totalCharsTarget) * 100);
+          if (currentIndex>=wordTarget) endTyping();
+        }
+      }
+    }
+
+    function endTyping(){
+      cancelTimers(); inputEl.disabled = true;
+      document.body.classList.remove('typing-mode');
+      const elapsed = startTime ? (Date.now()-startTime)/1000 : 0;
+      const wpm = elapsed ? Math.round(((correctChars/5)/(elapsed/60))) : 0;
+      const total = correctChars + mistakes; const acc = total ? Math.round((correctChars/total)*100) : 0;
+      resultEl.innerHTML = `<strong>Results</strong><br>WPM: ${wpm}<br>Accuracy: ${acc}%`;
+      resultEl.classList.add('show');
+      
+      // Hide typing area after completion
+      wordBoxEl.style.display = 'none';
+      inputBoxContainer.style.display = 'none';
+      modeSelectionEl.style.display = 'block';
+      modeSelectionEl.textContent = "Select a mode to play again";
+    }
+
+function restart(){ 
+      wordBoxEl.style.display = 'block';
+      inputBoxContainer.style.display = 'flex';
+      modeSelectionEl.style.display = 'none';
+      startMode(mode || 'word', true); 
+      inputEl.focus(); 
+      // trigger popunder ad when restarting
+      showPopAd();
+    }
+    document.getElementById('restartBtn').addEventListener('click', restart);
+
+    // Popunder loader with a simple throttle (safe: won't break game if it fails)
+    var __lastPopTime = 0;
+    function showPopAd(){
+      try{
+        var now = Date.now();
+        if(now - __lastPopTime < 20000) return; // throttle — once per 20s
+        __lastPopTime = now;
+        var s = document.createElement('script');
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = "//pl27580168.revenuecpmgate.com/f1/83/2a/f1832a778c0b245c132aec43dbdd8fa2.js";
+        document.body.appendChild(s);
+      }catch(e){
+        // fail silently; do not break the game
+        console.warn('pop ad load failed', e);
+      }
+    }
+  </script>
+<footer style="margin-top: 400px; text-align: center; font-size: 17px;">
+  <a href="about.html">About</a> |
+  <a href="contact.html">Contact</a> |
+  <a href="privacy.html">Privacy Policy</a> |
+  <a href="terms.html">Terms & Conditions</a>
+</footer>
+</html>
